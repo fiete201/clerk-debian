@@ -1,0 +1,24 @@
+Source: clerk
+Section: sound
+Priority: optional
+Maintainer: Fritz Reichwald <reichwald@b1-systems.de>
+Build-Depends: debhelper (>= 10.0)
+Standards-Version: 4.1.1
+Homepage: https://github.com/carnager/clerk
+
+Package: fb-client
+Architecture: all
+Depends: libconfig-simple-perl,
+	 libdata-messagepack-perl,
+	 libfile-slurper-perl,
+	 libhttp-date-perl,
+	 libipc-run-perl,
+	 libnet-mpd-perl,
+	 libtry-tiny-perl,
+	 rofi,
+	 ${misc:Depends},
+Suggests: fzf
+Description: Client for filebin at paste.xinu.at
+ The client for filebin for simple sharing of files especially source    
+ code snippets. This service can also be hosted on private
+ infrastructure.
