@@ -2,3 +2,11 @@
 %:
 	dh $@ 
 
+override_dh_auto_install:
+	dh_auto_install
+	install -D -m 755 clerk.pl /usr/bin/
+	install -D -m 755 clerk_rating_client.service /usr/lib/systemd/user/
+	install -D -m 755 clerk_rating_client /usr/bin/
+	install -D -m 755 clerk_setup /usr/bin/
+	install -D -m 644 clerk.conf /usr/share/doc/clerk/
+	install -D -m 644 clerk.tmux /usr/share/doc/clerk/
