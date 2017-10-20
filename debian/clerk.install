@@ -2,5 +2,6 @@
 clerk.pl => /usr/bin/clerk
 clerk_rating_client.service /usr/lib/systemd/user
 clerk_rating_client /usr/bin
+clerk_setup /usr/bin
 clerk.conf /usr/share/doc/clerk
 clerk.tmux /usr/share/doc/clerk
