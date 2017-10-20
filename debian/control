@@ -6,7 +6,7 @@ Build-Depends: debhelper (>= 10.0)
 Standards-Version: 4.1.1
 Homepage: https://github.com/carnager/clerk
 
-Package: fb-client
+Package: clerk
 Architecture: all
 Depends: libconfig-simple-perl,
 	 libdata-messagepack-perl,
@@ -16,9 +16,7 @@ Depends: libconfig-simple-perl,
 	 libnet-mpd-perl,
 	 libtry-tiny-perl,
 	 rofi,
-	 ${misc:Depends},
+	 ${misc:Depends}
 Suggests: fzf
-Description: Client for filebin at paste.xinu.at
- The client for filebin for simple sharing of files especially source    
- code snippets. This service can also be hosted on private
- infrastructure.
+Description: MPD client using rofi or fzf
+ This client focuses easy manipulation of the mpd queue.
