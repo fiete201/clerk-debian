@@ -1,4 +1,5 @@
-clerk.pl /usr/bin/clerk
+#!/usr/bin/dh-exec
+clerk.pl => /usr/bin/clerk
 clerk_rating_client.service /usr/lib/systemd/user
 clerk_rating_client /usr/bin
 clerk.conf /usr/share/doc/clerk
