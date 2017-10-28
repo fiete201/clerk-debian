@@ -1,3 +1,9 @@
+clerk (4.0.2-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Fritz Reichwald <reichwald@b1-systems.de>  Sat, 28 Oct 2017 11:51:50 +0200
+
 clerk (4.0.0-1) unstable; urgency=medium
 
   * New upstream release
