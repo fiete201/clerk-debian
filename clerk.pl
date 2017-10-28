@@ -4,6 +4,7 @@ binmode(STDOUT, ":utf8");
 use v5.10;
 use warnings;
 use strict;
+use Data::Dumper;
 use utf8;
 use Config::Simple;
 use Data::MessagePack;
@@ -243,22 +244,8 @@ sub backend_call {
 	$random //= "ignore";
 	$fields //= "1,2,3,4";
 	my %backends = (
-		fzf => [ qw(fzf
-			--reverse
-			--no-sort
-			-m
-			-e
-			--no-hscroll
-			-i
-			-d
-			\t
-			--tabstop=4
-			+s
-			--ansi),
-			"--bind=esc:$random,alt-a:toggle-all,alt-n:deselect-all",
-			"--with-nth=$fields"
-		],
-		rofi => [ "rofi", "-width", "1300", "-matching", "regex", "-dmenu", "-kb-row-tab", "", "-kb-move-word-forward", "", "-kb-accept-alt", "Tab", "-multi-select", "-no-levensthein-sort", "-i", "-p", "> "  ]
+		fzf => [ "fzf", "--reverse", "--no-sort", "-m", "-e", "--no-hscroll", "-i", "-d", "\t", "--tabstop=4", "+s", "--ansi", "--bind=esc:$random,alt-a:toggle-all,alt-n:deselect-all", "--with-nth=$fields" ],
+		rofi => [ "rofi", "-matching", "regex", "-dmenu", "-kb-row-tab", "", "-kb-move-word-forward", "", "-kb-accept-alt", "Tab", "-multi-select", "-no-levensthein-sort", "-i", "-p", "> "  ]
 	);
 	my $handle = start $backends{$rvar{backend}} // die('backend not found'), \$input, \$out;
 	$input = join "", (@{$in});
@@ -326,16 +313,17 @@ sub formatted_albums {
 	my ($rdb, $sorted) = @_;
 
 	my %uniq_albums;
+	my $index = 0;
 	for my $i (@$rdb) {
 		my $newkey = join "", $i->@{qw/AlbumArtist Date Album/};
 		if (!exists $uniq_albums{$newkey}) {
-			my $dir = (dirname($i->{uri}) =~ s/\/CD.*$//r);
-			$uniq_albums{$newkey} = {$i->%{qw/AlbumArtist Album Date mtime/}, Dir => $dir};
+			$uniq_albums{$newkey} = {$i->%{qw/AlbumArtist Album Date mtime/}, Index => $index};
 		} else {
 			if ($uniq_albums{$newkey}->{'mtime'} < $i->{'mtime'}) {
 				$uniq_albums{$newkey}->{'mtime'} = $i->{'mtime'}
 			}
 		}
+	$index++;;
 	}
 
 	my @albums;
@@ -349,11 +337,10 @@ sub formatted_albums {
 	}
 
 	for my $k (@skeys) {
-		my @vals = ((map { $_ // "Unknown" } $uniq_albums{$k}->@{qw/AlbumArtist Date Album/}), $uniq_albums{$k}->{Dir});
+		my @vals = ((map { $_ // "Unknown" } $uniq_albums{$k}->@{qw/AlbumArtist Date Album/}), $uniq_albums{$k}->{Index});
 		my $strval = sprintf $fmtstr."%s\n", @vals;
 		push @albums, $strval;
 	}
-
 	return \@albums;
 }
 
@@ -361,11 +348,13 @@ sub formatted_tracks {
 	my ($rdb) = @_;
 	my $fmtstr = join "", map {"%-${_}.${_}s\t"} ($rvar{max_width}->@{qw/track title artist album rating/});
 	$fmtstr .= "%-s\n";
-	my @tracks = map {
+	my $i = 0;
+	my @tracks;
+	@tracks = map {
 		sprintf $fmtstr,
 		        (map { $_ // "-" } $_->@{qw/Track Title Artist Album/}),
 				"r=" . ($_->{rating} // '0'),
-				$_->{uri};
+				$i++;
 	} @{$rdb};
 
 	return \@tracks;
@@ -395,11 +384,11 @@ sub tmux {
 }
 
 sub tmux_jump_to_queue_maybe {
-	tmux qw/selectw -t :=queue/ if ($rvar{jump_queue} eq "true");
+	tmux qw/selectw -t :=queue/ if $ENV{CLERK_JUMP_QUEUE};
 }
 
 sub tmux_spawn_random_pane {
-	tmux 'splitw', '-d', $self, '--backend=fzf', '--randoms';
+	tmux 'splitw', '-d', '-l', '8', $self, '--backend=fzf', '--randoms';
 	tmux qw/select-pane -D/;
 }
 
@@ -418,6 +407,7 @@ sub tmux_ui {
 	unless (tmux_has_session('music')) {
 		my @win = qw/neww -t music -n/;
 		my @clerk = ($self, '--backend=fzf', '--endless');
+		$ENV{CLERK_JUMP_QUEUE} = 1 if ($rvar{jump_queue} // '') eq 'true';
 		tmux '-f', $rvar{tmux_config}, qw/new -s music -n albums -d/, @clerk, '-a';
 		tmux @win, 'tracks', @clerk, '-t';
 		tmux @win, 'latest', @clerk, '-l';
@@ -468,29 +458,51 @@ sub action_db_albums {
 	my ($out) = @_;
 
 	my @sel = util_parse_selection($out);
+	@sel = map { $rvar{db}{ref}->[$_] } @sel;
+	my (@uris, @tracks);
+	for my $album (@sel) {
+		push @tracks, lookup_album_tags($album->{AlbumArtist}, $album->{Album}, $album->{Date});
+	}
+	foreach (@tracks) {
+		push @uris, $_->{uri};
+	}
 
 	my $action = backend_call(["Add\n", "Replace\n", "---\n", "Rate Album(s)\n"]);
 	mpd_reachable();
 	{
 		local $_ = $action;
-		if    (/^Add/)                { mpd_add_items(\@sel) }
-		elsif (/^Replace/)            { mpd_replace_with_items(\@sel) }
-		elsif (/^Rate Album\(s\)/)    { mpd_rate_with_albums(\@sel) }
+		if    (/^Add/)                { mpd_add_items(\@uris) }
+		elsif (/^Replace/)            { mpd_replace_with_items(\@uris) }
+		elsif (/^Rate Album\(s\)/)    { mpd_rate_with_albums(\@uris) }
 	}
+}
+
+sub lookup_album_tags {
+	my ($albumartist, $album, $date) = @_;
+	return grep { $albumartist eq $_->{AlbumArtist} && $album eq $_->{Album} && $date eq $_->{Date} } $rvar{db}{ref}->@*;
+}
+
+sub get_tags_from_rdb {
 }
 
 sub action_db_tracks {
 	my ($out) = @_;
-
+ 
 	my @sel = util_parse_selection($out);
+	@sel = map { $rvar{db}{ref}->[$_] } @sel;
+	my (@uris);
+
+	foreach (@sel) {
+		push @uris, $_->{uri};
+	}
 
 	my $action = backend_call(["Add\n", "Replace\n", "---\n", "Rate Track(s)\n"]);
 	mpd_reachable();
 	{
 		local $_ = $action;
-		if    (/^Add/)                { mpd_add_items(\@sel) }
-		elsif (/^Replace/)            { mpd_replace_with_items(\@sel) }
-		elsif (/^Rate Track\(s\)/)    { mpd_rate_with_tracks(\@sel) }
+		if    (/^Add/)                { mpd_add_items(\@uris) }
+		elsif (/^Replace/)            { mpd_replace_with_items(\@uris) }
+		elsif (/^Rate Track\(s\)/)    { mpd_rate_with_tracks(\@uris) }
 	}
 }
 
@@ -545,7 +557,7 @@ sub action_track_mode {
 
 sub util_parse_selection {
 	my ($sel) = @_;
-	map { (split /[\t\n]/, $_)[-1] } (split /\n/, decode('UTF-8', $sel));
+	map { (split /[\t\n]/, $_)[-1] } (split /\n/, $sel);
 }
 
 sub mpd_add_items {
@@ -653,23 +665,8 @@ clerk [command] [-f]
     -f           Use fzf interface
 
   Without further arguments, clerk starts a tabbed tmux interface
+  Hotkeys for tmux interface can be set in $HOME/.config/clerk/clerk.tmux
 
-clerk version 2.0
+clerk version 4.0
 
 =cut
-
-=head1 LICENSE
-Copyright (C) 2015-2017  Rasmus Steinke <rasi@xssn.at>
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-See LICENSE for the full license text.
-=cut
-
