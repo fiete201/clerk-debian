@@ -1,3 +1,10 @@
+clerk (4.0.4-1) unstable; urgency=medium
+
+  * New upstream release
+  * New dependency libdata-section-simple-perl 
+
+ -- Fritz Reichwald <reichwald@b1-systems.de>  Mon, 30 Oct 2017 20:24:58 +0100
+
 clerk (4.0.3-1) unstable; urgency=medium
 
   * New upstream release
