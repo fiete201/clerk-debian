@@ -11,6 +11,7 @@ Package: clerk
 Architecture: all
 Depends: libconfig-simple-perl,
 	 libdata-messagepack-perl,
+	 libdata-section-simple-perl,
 	 libfile-slurper-perl,
 	 libhttp-date-perl,
 	 libipc-run-perl,
